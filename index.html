@@ -339,12 +339,43 @@ function startSparkles() {
   });
 }
 
+// ── 音频 ────────────────────────────────────
+const audioFiles = [
+  '4月17日 (5).wav','4月17日 (5)(1).wav','4月17日 (5)(2).wav',
+  '4月17日 (5)(3).wav','4月17日 (5)(4).wav','4月17日 (5)(5).wav',
+  '4月17日 (5)(6).wav','4月17日 (5)(7).wav','4月17日 (5)(8).wav',
+  '4月17日 (5)(9).wav','4月17日 (5)(11).wav','4月17日 (5)(15).wav',
+  '4月17日 (5)(12).wav','4月17日 (5)(13).wav','4月17日 (5)(14).wav',
+];
+const RAPID_MS   = 1200;
+let curAudio     = null;
+let curFile      = null;
+let lastClickAt  = 0;
+
+function playSound() {
+  const now     = Date.now();
+  const isRapid = curFile && (now - lastClickAt) < RAPID_MS;
+  lastClickAt   = now;
+
+  if (isRapid) {
+    curAudio.currentTime = 0;
+    curAudio.play();
+  } else {
+    if (curAudio) curAudio.pause();
+    curFile  = audioFiles[Math.floor(Math.random() * audioFiles.length)];
+    curAudio = new Audio('yinxiao/' + encodeURIComponent(curFile));
+    curAudio.play();
+  }
+}
+
 // ── 点击效果 ────────────────────────────────
 let totalParticles = 0;
 let outroShown     = false;
 const heartPool    = ['❤️','💕','💗','💓','💞'];
 
 function clickEffect(cx, cy) {
+  playSound();
+
   // 涟漪
   const rip = document.createElement('div');
   rip.className = 'ripple';
