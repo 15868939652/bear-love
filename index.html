@@ -2,112 +2,256 @@
 <html>
 <head>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0">
 <title>给你一只草莓熊 🐻🍓</title>
-
 <style>
+* { box-sizing: border-box; }
+
 body {
   margin: 0;
-  background: radial-gradient(circle, #1a1a1a, #000);
+  min-height: 100vh;
+  background: linear-gradient(160deg, #fff9fb 0%, #ffeef5 35%, #f8f0ff 70%, #fff5f0 100%);
   overflow: hidden;
-  font-family: "Arial";
-  color: white;
+  font-family: "PingFang SC", "Hiragino Sans GB", "Microsoft YaHei", Arial, sans-serif;
+  position: relative;
 }
 
-/* 打字文字 */
+/* 背景漂浮装饰 */
+.bg-dot {
+  position: fixed;
+  pointer-events: none;
+  user-select: none;
+  animation: rise linear infinite;
+  opacity: 0;
+}
+@keyframes rise {
+  0%   { transform: translateY(100vh) rotate(0deg);  opacity: 0;    }
+  8%   { opacity: 0.35; }
+  92%  { opacity: 0.2;  }
+  100% { transform: translateY(-8vh)  rotate(30deg); opacity: 0;    }
+}
+
+/* 文字区 */
 #text {
   position: absolute;
-  top: 30%;
+  top: 18%;
   width: 100%;
   text-align: center;
-  font-size: 28px;
+  font-size: 22px;
   letter-spacing: 2px;
+  line-height: 2.1;
+  color: #c0527a;
+  text-shadow: 0 1px 8px rgba(192,82,122,0.1);
 }
 
-/* 小熊 */
-#bear {
+/* 光标闪烁 */
+.cursor {
+  display: inline-block;
+  width: 1.5px;
+  height: 1em;
+  background: #c0527a;
+  vertical-align: middle;
+  margin-left: 1px;
+  animation: blink 0.75s step-end infinite;
+}
+@keyframes blink { 50% { opacity: 0; } }
+
+/* 小熊容器 — 控制位置 */
+#bearWrap {
   position: absolute;
-  bottom: -400px;
+  bottom: 60px;
   left: 50%;
-  transform: translateX(-50%) scale(0.6);
-  width: 300px;
+  transform: translateX(-50%);
+  width: 260px;
+}
+
+/* 小熊图片 — 控制缩放/动画 */
+#bear {
+  display: block;
+  width: 100%;
+  cursor: pointer;
+  filter: drop-shadow(0 8px 30px rgba(200,100,140,0.22));
+  -webkit-tap-highlight-color: transparent;
+  transform-origin: center bottom;
+  transform: scale(0);
   opacity: 0;
 }
 
-/* 出场动画 */
-.showBear {
-  animation: popUp 1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+/* 入场：容器从下滑入 */
+#bearWrap.enter {
+  animation: wrapUp 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes wrapUp {
+  0%   { transform: translateX(-50%) translateY(220px); }
+  100% { transform: translateX(-50%) translateY(0);     }
 }
 
-/* 呼吸动画 */
-.breath {
-  animation: float 2.5s ease-in-out infinite;
+/* 入场：熊从小到大 */
+#bear.enter {
+  animation: bearIn 1.1s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes bearIn {
+  0%   { transform: scale(0.15); opacity: 0; }
+  55%  { opacity: 1; }
+  100% { transform: scale(1);    opacity: 1; }
 }
 
-@keyframes popUp {
-  0% {
-    bottom: -400px;
-    opacity: 0;
-    transform: translateX(-50%) scale(0.3);
-  }
-  60% {
-    bottom: 120px;
-    opacity: 1;
-    transform: translateX(-50%) scale(1.1);
-  }
-  100% {
-    bottom: 80px;
-    transform: translateX(-50%) scale(1);
-  }
+/* 呼吸 */
+#bear.breath {
+  animation: breath 3s ease-in-out infinite;
+}
+@keyframes breath {
+  0%   { transform: scale(1)    translateY(0px);  }
+  50%  { transform: scale(1.04) translateY(-9px); }
+  100% { transform: scale(1)    translateY(0px);  }
 }
 
-@keyframes float {
-  0% { transform: translateX(-50%) translateY(0px) scale(1); }
-  50% { transform: translateX(-50%) translateY(-10px) scale(1.03); }
-  100% { transform: translateX(-50%) translateY(0px) scale(1); }
+/* 点击弹跳 */
+#bear.bounce {
+  animation: bearBounce 0.45s ease-out;
+}
+@keyframes bearBounce {
+  0%   { transform: scale(1);    }
+  25%  { transform: scale(0.87) translateY(5px);  }
+  65%  { transform: scale(1.14) translateY(-5px); }
+  100% { transform: scale(1);    }
+}
+
+/* 心形粒子 */
+.heart {
+  position: fixed;
+  pointer-events: none;
+  user-select: none;
+  animation: heartFly 1.1s ease-out forwards;
+  z-index: 9999;
+}
+@keyframes heartFly {
+  0%   { opacity: 1; transform: translateY(0px)    scale(0.5) rotate(var(--r)); }
+  100% { opacity: 0; transform: translateY(-120px) scale(1.3) rotate(var(--r)); }
+}
+
+/* 涟漪 */
+.ripple {
+  position: fixed;
+  border-radius: 50%;
+  background: radial-gradient(circle, rgba(210,110,150,0.18), transparent 70%);
+  pointer-events: none;
+  animation: rippleGrow 0.65s ease-out forwards;
+  z-index: 9998;
+}
+@keyframes rippleGrow {
+  0%   { transform: scale(0); opacity: 1; }
+  100% { transform: scale(5); opacity: 0; }
 }
 </style>
 </head>
-
 <body>
 
 <div id="text"></div>
-
-<img id="bear" src="bear.png">
+<div id="bearWrap"><img id="bear" src="bear.png" alt="草莓熊"></div>
 
 <script>
-const text1 = "我给你写了一个小程序...";
-const text2 = "然后它变成了一只小熊 🐻";
-const textEl = document.getElementById("text");
-const bear = document.getElementById("bear");
+// ── 背景装饰粒子 ────────────────────────────
+const pool = ['🌸','✨','💗','⭐','🌺','💕','🍓','🌷'];
 
-// 打字机效果
-let i = 0;
-function typing() {
-  if (i < text.length) {
-    textEl.innerHTML += text.charAt(i);
-    i++;
-    setTimeout(typing, 80);
-  } else {
-    setTimeout(showBear, 500);
-  }
+function spawnBg() {
+  const el = document.createElement('div');
+  el.className = 'bg-dot';
+  el.textContent = pool[Math.floor(Math.random() * pool.length)];
+  const dur = 7 + Math.random() * 9;
+  el.style.cssText = [
+    'left:'              + (Math.random() * 100) + 'vw',
+    'font-size:'         + (11 + Math.random() * 10) + 'px',
+    'animation-duration:'+ dur + 's',
+    'animation-delay:-'  + (Math.random() * dur) + 's',
+  ].join(';');
+  document.body.appendChild(el);
+  setTimeout(() => el.remove(), (dur + 2) * 1000);
 }
 
-// 小熊出现
+for (let i = 0; i < 14; i++) spawnBg();
+setInterval(spawnBg, 900);
+
+// ── 打字机 ──────────────────────────────────
+const lines  = ['我给你写了一个小程序...', '然后它变成了一只小熊 🐻'];
+const textEl = document.getElementById('text');
+
+function typeLine(str, onDone) {
+  const row    = document.createElement('div');
+  const cursor = document.createElement('span');
+  cursor.className = 'cursor';
+  textEl.appendChild(row);
+  textEl.appendChild(cursor);
+  let i = 0;
+  (function step() {
+    if (i < str.length) { row.textContent += str[i++]; setTimeout(step, 78); }
+    else { cursor.remove(); onDone && setTimeout(onDone, 380); }
+  })();
+}
+
+typeLine(lines[0], () => typeLine(lines[1], showBear));
+
+// ── 小熊出场 ────────────────────────────────
+const wrap = document.getElementById('bearWrap');
+const bear = document.getElementById('bear');
+
 function showBear() {
-  bear.classList.add("showBear");
+  wrap.classList.add('enter');
+  bear.classList.add('enter');
 
-  setTimeout(() => {
-    bear.classList.add("breath");
-  }, 1000);
+  bear.addEventListener('animationend', function handler() {
+    bear.removeEventListener('animationend', handler);
+    bear.classList.remove('enter');
+    bear.style.transform = 'scale(1)';
+    bear.style.opacity   = '1';
+    requestAnimationFrame(() => requestAnimationFrame(() => bear.classList.add('breath')));
+  });
 }
 
-// 点击互动
-bear.onclick = () => {
-  alert("这只小熊和我一样，都很喜欢你 ❤️");
-};
+// ── 点击效果 ────────────────────────────────
+const heartPool = ['❤️','💕','💗','💓','💖','💝','🍓','💞'];
 
-typing();
+function clickEffect(cx, cy) {
+  // 涟漪
+  const rip = document.createElement('div');
+  rip.className = 'ripple';
+  const s = 100;
+  rip.style.cssText = `width:${s}px;height:${s}px;left:${cx - s/2}px;top:${cy - s/2}px`;
+  document.body.appendChild(rip);
+  setTimeout(() => rip.remove(), 700);
+
+  // 心形粒子爆出
+  const n = 7 + Math.floor(Math.random() * 5);
+  for (let i = 0; i < n; i++) {
+    setTimeout(() => {
+      const h   = document.createElement('div');
+      h.className = 'heart';
+      h.textContent = heartPool[Math.floor(Math.random() * heartPool.length)];
+      const ox  = (Math.random() - 0.5) * 130;
+      h.style.cssText = `left:${cx + ox - 12}px;top:${cy - 10}px;font-size:${16 + Math.random()*14}px`;
+      h.style.setProperty('--r', ((Math.random() - 0.5) * 36) + 'deg');
+      document.body.appendChild(h);
+      setTimeout(() => h.remove(), 1200);
+    }, i * 45);
+  }
+
+  // 小熊弹跳
+  bear.classList.remove('breath', 'bounce');
+  void bear.offsetWidth;
+  bear.classList.add('bounce');
+  bear.addEventListener('animationend', function h2() {
+    bear.removeEventListener('animationend', h2);
+    bear.classList.remove('bounce');
+    bear.classList.add('breath');
+  });
+}
+
+bear.addEventListener('click', e => clickEffect(e.clientX, e.clientY));
+bear.addEventListener('touchstart', e => {
+  e.preventDefault();
+  const t = e.touches[0];
+  clickEffect(t.clientX, t.clientY);
+}, { passive: false });
 </script>
-
 </body>
 </html>
