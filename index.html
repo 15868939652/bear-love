@@ -216,6 +216,24 @@ body {
   100% { transform: scale(5); opacity: 0; }
 }
 
+/* 屏幕闪光 */
+@keyframes flashOut {
+  0%   { opacity: 1; }
+  100% { opacity: 0; }
+}
+
+/* 重新出现（从天而降） */
+#bear.reappear {
+  animation: reappearDrop 0.85s cubic-bezier(0.34, 1.56, 0.64, 1) forwards;
+}
+@keyframes reappearDrop {
+  0%   { transform: scale(0.2) translateY(-180px); opacity: 0; }
+  55%  { transform: scale(1.14) translateY(14px);  opacity: 1; }
+  75%  { transform: scale(0.93) translateY(-7px);  }
+  88%  { transform: scale(1.04) translateY(3px);   }
+  100% { transform: scale(1)    translateY(0);     }
+}
+
 /* 结尾文字 */
 #outro {
   position: absolute;
@@ -341,11 +359,9 @@ function startSparkles() {
 
 // ── 音频（预加载全部，消除点击延迟）───────────
 const audioPool = [
-  '4月17日 (5).wav','4月17日 (5)(1).wav','4月17日 (5)(2).wav',
-  '4月17日 (5)(3).wav','4月17日 (5)(4).wav','4月17日 (5)(5).wav',
-  '4月17日 (5)(6).wav','4月17日 (5)(7).wav','4月17日 (5)(8).wav',
-  '4月17日 (5)(9).wav','4月17日 (5)(11).wav','4月17日 (5)(15).wav',
-  '4月17日 (5)(12).wav','4月17日 (5)(13).wav','4月17日 (5)(14).wav',
+  '4月17日 (5).mp3','4月17日 (5)(1).mp3','4月17日 (5)(2).mp3',
+  '4月17日 (5)(3).mp3','4月17日 (5)(4).mp3','4月17日 (5)(8).mp3',
+  '4月17日 (5)(10).mp3',
 ].map(f => {
   const a = new Audio('yinxiao/' + encodeURIComponent(f));
   a.preload = 'auto';
@@ -372,22 +388,20 @@ function playSound() {
   }
 }
 
-// ── 点击效果 ────────────────────────────────
+// ── 粒子 + 涟漪 ─────────────────────────────
 let totalParticles = 0;
 let outroShown     = false;
 const heartPool    = ['❤️','💕','💗','💓','💞'];
 
-function clickEffect(cx, cy) {
-  playSound();
-
-  // 涟漪
+function spawnRipple(cx, cy) {
   const rip = document.createElement('div');
   rip.className = 'ripple';
   rip.style.cssText = `width:100px;height:100px;left:${cx-50}px;top:${cy-50}px`;
   document.body.appendChild(rip);
   setTimeout(() => rip.remove(), 700);
+}
 
-  // 草莓 + 爱心粒子
+function spawnParticles(cx, cy) {
   const n = 7 + Math.floor(Math.random() * 4);
   for (let i = 0; i < n; i++) {
     setTimeout(() => {
@@ -405,23 +419,12 @@ function clickEffect(cx, cy) {
       document.body.appendChild(p);
       totalParticles++;
       setTimeout(() => p.remove(), 1400);
-
       if (!outroShown && totalParticles >= 28) {
         outroShown = true;
         setTimeout(showOutro, 2000);
       }
     }, i * 45);
   }
-
-  // 小熊弹跳
-  bear.classList.remove('breath', 'bounce');
-  void bear.offsetWidth;
-  bear.classList.add('bounce');
-  bear.addEventListener('animationend', function h2() {
-    bear.removeEventListener('animationend', h2);
-    bear.classList.remove('bounce');
-    bear.classList.add('breath');
-  });
 }
 
 function showOutro() {
@@ -429,11 +432,131 @@ function showOutro() {
   setTimeout(() => document.getElementById('line2').classList.add('show'), 1100);
 }
 
-bear.addEventListener('click', e => clickEffect(e.clientX, e.clientY));
+// ── 按压机制 ─────────────────────────────────
+const HOLD_THRESHOLD = 260;   // ms：超过此时间算"按压"而非"点击"
+const HOLD_MAX       = 3000;  // ms：按满此时间触发爆炸
+let holdStart    = null;
+let holdRAF      = null;
+let isHolding    = false;
+let isExploding  = false;
+
+function startHold(cx, cy) {
+  if (isExploding) return;
+  playSound();
+  spawnRipple(cx, cy);
+  spawnParticles(cx, cy);
+
+  holdStart = Date.now();
+  isHolding = false;
+
+  function frame() {
+    if (!holdStart) return;
+    const elapsed  = Date.now() - holdStart;
+    const progress = Math.min(elapsed / HOLD_MAX, 1);
+
+    if (!isHolding && elapsed >= HOLD_THRESHOLD) {
+      isHolding = true;
+      bear.classList.remove('breath', 'bounce');
+      bear.style.transformOrigin = 'center center';
+    }
+
+    if (isHolding) {
+      // 缓慢开始、加速变大，给人"憋着劲"的感觉
+      const scale  = 1 + 2.2 * Math.pow(progress, 1.8);
+      const glow   = 0.3 + 0.7 * progress;
+      const spread = 20 + 60 * progress;
+      bear.style.transform = `scale(${scale})`;
+      bear.style.filter    = `drop-shadow(0 0 ${spread}px rgba(255,100,150,${glow})) saturate(${1 + progress * 0.6})`;
+
+      if (progress >= 1) { triggerExplosion(); return; }
+    }
+    holdRAF = requestAnimationFrame(frame);
+  }
+  holdRAF = requestAnimationFrame(frame);
+}
+
+function endHold() {
+  if (!holdStart) return;
+  const wasHolding = isHolding;
+  holdStart = null;
+  isHolding = false;
+  cancelAnimationFrame(holdRAF);
+  if (isExploding) return;
+
+  bear.style.filter = '';
+
+  if (wasHolding) {
+    // 弹簧回弹
+    bear.style.transition = 'transform 0.55s cubic-bezier(0.34, 1.56, 0.64, 1)';
+    bear.style.transform  = 'scale(1)';
+    setTimeout(() => {
+      bear.style.transition    = '';
+      bear.style.transform     = '';
+      bear.style.transformOrigin = '';
+      requestAnimationFrame(() => requestAnimationFrame(() => bear.classList.add('breath')));
+    }, 580);
+  } else {
+    // 短按：普通弹跳
+    bear.classList.remove('breath', 'bounce');
+    void bear.offsetWidth;
+    bear.classList.add('bounce');
+    bear.addEventListener('animationend', function h() {
+      bear.removeEventListener('animationend', h);
+      bear.classList.remove('bounce');
+      bear.classList.add('breath');
+    });
+  }
+}
+
+function triggerExplosion() {
+  isExploding = true;
+  holdStart   = null;
+  isHolding   = false;
+  bear.style.filter = '';
+
+  // 屏幕粉色闪光
+  const flash = document.createElement('div');
+  flash.style.cssText = 'position:fixed;inset:0;background:rgba(255,200,220,0.75);pointer-events:none;z-index:9999;animation:flashOut 0.5s ease-out forwards';
+  document.body.appendChild(flash);
+  setTimeout(() => flash.remove(), 500);
+
+  // 熊暴涨消失
+  bear.style.transition = 'transform 0.45s ease-in, opacity 0.4s ease-in 0.05s';
+  bear.style.transform  = 'scale(6)';
+  bear.style.opacity    = '0';
+
+  setTimeout(() => {
+    bear.style.transition      = '';
+    bear.style.transform       = 'scale(0)';
+    bear.style.transformOrigin = 'center center';
+    bear.classList.remove('breath', 'bounce');
+
+    // 1s 后从天而降重新出现
+    setTimeout(() => {
+      bear.style.opacity = '1';
+      bear.classList.add('reappear');
+      bear.addEventListener('animationend', function handler() {
+        bear.removeEventListener('animationend', handler);
+        bear.classList.remove('reappear');
+        bear.style.transform       = '';
+        bear.style.transformOrigin = '';
+        isExploding = false;
+        requestAnimationFrame(() => requestAnimationFrame(() => bear.classList.add('breath')));
+      });
+    }, 650);
+  }, 450);
+}
+
+// ── 事件绑定 ─────────────────────────────────
+bear.addEventListener('mousedown',  e => startHold(e.clientX, e.clientY));
+bear.addEventListener('mouseup',    endHold);
+bear.addEventListener('mouseleave', endHold);
 bear.addEventListener('touchstart', e => {
   e.preventDefault();
-  clickEffect(e.touches[0].clientX, e.touches[0].clientY);
+  startHold(e.touches[0].clientX, e.touches[0].clientY);
 }, { passive: false });
+bear.addEventListener('touchend',    endHold, { passive: true });
+bear.addEventListener('touchcancel', endHold, { passive: true });
 </script>
 </body>
 </html>
