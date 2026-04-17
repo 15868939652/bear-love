@@ -119,6 +119,11 @@ body {
   width: 100%;
   cursor: pointer;
   -webkit-tap-highlight-color: transparent;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-user-drag: none;
+  pointer-events: auto;
   transform-origin: center bottom;
   transform: scale(0);
   opacity: 0;
@@ -357,35 +362,18 @@ function startSparkles() {
   });
 }
 
-// ── 音频（预加载全部，消除点击延迟）───────────
-const audioPool = [
-  '4月17日 (5).mp3','4月17日 (5)(1).mp3','4月17日 (5)(2).mp3',
-  '4月17日 (5)(3).mp3','4月17日 (5)(4).mp3','4月17日 (5)(8).mp3',
-  '4月17日 (5)(10).mp3',
-].map(f => {
-  const a = new Audio('yinxiao/' + encodeURIComponent(f));
+// ── 音频 ────────────────────────────────────
+function makeAudio(name) {
+  const a = new Audio('yinxiao/' + name);
   a.preload = 'auto';
   return a;
-});
+}
+const audio1 = makeAudio('1.mp3'); // 长按持续音
+const audio2 = makeAudio('2.mp3'); // 爆炸音
+const audio3 = makeAudio('3.mp3'); // 重新登场音
 
-const RAPID_MS  = 1200;
-let curAudio    = null;
-let lastClickAt = 0;
-
-function playSound() {
-  const now     = Date.now();
-  const isRapid = curAudio && (now - lastClickAt) < RAPID_MS;
-  lastClickAt   = now;
-
-  if (isRapid) {
-    curAudio.currentTime = 0;
-    curAudio.play();
-  } else {
-    if (curAudio) { curAudio.pause(); curAudio.currentTime = 0; }
-    curAudio = audioPool[Math.floor(Math.random() * audioPool.length)];
-    curAudio.currentTime = 0;
-    curAudio.play();
-  }
+function stopAll() {
+  [audio1, audio2, audio3].forEach(a => { a.pause(); a.currentTime = 0; });
 }
 
 // ── 粒子 + 涟漪 ─────────────────────────────
@@ -428,13 +416,26 @@ function spawnParticles(cx, cy) {
 }
 
 function showOutro() {
-  document.getElementById('line1').classList.add('show');
-  setTimeout(() => document.getElementById('line2').classList.add('show'), 1100);
+  const l1 = document.getElementById('line1');
+  const l2 = document.getElementById('line2');
+  l1.classList.add('show');
+  setTimeout(() => {
+    l2.classList.add('show');
+    // 两行都出现后 5s 渐隐
+    setTimeout(() => {
+      [l1, l2].forEach(el => {
+        el.style.transition = 'opacity 1.5s ease, transform 1.5s ease';
+        el.style.opacity    = '0';
+        el.style.transform  = 'translateY(8px)';
+      });
+    }, 5000);
+  }, 1100);
 }
 
 // ── 按压机制 ─────────────────────────────────
 const HOLD_THRESHOLD = 260;   // ms：超过此时间算"按压"而非"点击"
-const HOLD_MAX       = 3000;  // ms：按满此时间触发爆炸
+const HOLD_MAX       = 2500;  // ms：2.5s 触发爆炸
+const ACCEL_START    = 1500;  // ms：1.5s 后开始加速
 let holdStart    = null;
 let holdRAF      = null;
 let isHolding    = false;
@@ -442,7 +443,6 @@ let isExploding  = false;
 
 function startHold(cx, cy) {
   if (isExploding) return;
-  playSound();
   spawnRipple(cx, cy);
   spawnParticles(cx, cy);
 
@@ -458,15 +458,25 @@ function startHold(cx, cy) {
       isHolding = true;
       bear.classList.remove('breath', 'bounce');
       bear.style.transformOrigin = 'center center';
+      audio1.loop = true;
+      audio1.currentTime = 0;
+      audio1.play();
     }
 
     if (isHolding) {
-      // 缓慢开始、加速变大，给人"憋着劲"的感觉
-      const scale  = 1 + 2.2 * Math.pow(progress, 1.8);
-      const glow   = 0.3 + 0.7 * progress;
-      const spread = 20 + 60 * progress;
+      // 0~1.5s：缓慢憋劲；1.5~2.5s：爆炸式加速
+      let scale, glowP;
+      if (elapsed < ACCEL_START) {
+        const p = elapsed / ACCEL_START;
+        scale  = 1 + 0.38 * Math.pow(p, 2);
+        glowP  = p * 0.4;
+      } else {
+        const p = (elapsed - ACCEL_START) / (HOLD_MAX - ACCEL_START);
+        scale  = 1.38 + 2.2 * Math.pow(p, 2);
+        glowP  = 0.4 + p * 0.6;
+      }
       bear.style.transform = `scale(${scale})`;
-      bear.style.filter    = `drop-shadow(0 0 ${spread}px rgba(255,100,150,${glow})) saturate(${1 + progress * 0.6})`;
+      bear.style.filter    = `drop-shadow(0 0 ${15 + 70*glowP}px rgba(255,80,130,${0.2 + 0.8*glowP})) saturate(${1 + glowP * 0.7})`;
 
       if (progress >= 1) { triggerExplosion(); return; }
     }
@@ -484,6 +494,8 @@ function endHold() {
   if (isExploding) return;
 
   bear.style.filter = '';
+  audio1.pause();
+  audio1.currentTime = 0;
 
   if (wasHolding) {
     // 弹簧回弹
@@ -513,6 +525,8 @@ function triggerExplosion() {
   holdStart   = null;
   isHolding   = false;
   bear.style.filter = '';
+  audio1.pause(); audio1.currentTime = 0;
+  audio2.currentTime = 0; audio2.play();
 
   // 屏幕粉色闪光
   const flash = document.createElement('div');
@@ -531,8 +545,10 @@ function triggerExplosion() {
     bear.style.transformOrigin = 'center center';
     bear.classList.remove('breath', 'bounce');
 
-    // 1s 后从天而降重新出现
+    // 从天而降重新出现
     setTimeout(() => {
+      audio2.pause(); audio2.currentTime = 0;
+      audio3.currentTime = 0; audio3.play();
       bear.style.opacity = '1';
       bear.classList.add('reappear');
       bear.addEventListener('animationend', function handler() {
@@ -548,6 +564,7 @@ function triggerExplosion() {
 }
 
 // ── 事件绑定 ─────────────────────────────────
+bear.addEventListener('contextmenu', e => e.preventDefault());
 bear.addEventListener('mousedown',  e => startHold(e.clientX, e.clientY));
 bear.addEventListener('mouseup',    endHold);
 bear.addEventListener('mouseleave', endHold);
