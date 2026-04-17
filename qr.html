@@ -1,0 +1,61 @@
+<!DOCTYPE html>
+<html>
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>草莓熊二维码</title>
+<style>
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  min-height: 100vh;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  background: linear-gradient(160deg, #fff9fb, #ffeef5, #f8f0ff);
+  font-family: "PingFang SC", "Microsoft YaHei", Arial, sans-serif;
+  padding: 40px 20px;
+}
+h2 {
+  font-size: 18px;
+  color: #c0527a;
+  margin-bottom: 24px;
+  letter-spacing: 3px;
+}
+#qrbox {
+  background: white;
+  border-radius: 20px;
+  padding: 24px;
+  box-shadow: 0 8px 40px rgba(192,82,122,0.15);
+}
+p {
+  margin-top: 20px;
+  font-size: 12px;
+  color: #aaa;
+  text-align: center;
+  max-width: 260px;
+  line-height: 1.8;
+}
+</style>
+</head>
+<body>
+
+<h2>🍓 扫码打开草莓熊</h2>
+<div id="qrbox">
+  <div id="qrcode"></div>
+</div>
+<p>在微信中长按图片 → 识别图中二维码<br>即可直接打开，无需跳转提示</p>
+
+<script src="https://cdn.bootcdn.net/ajax/libs/qrcodejs/1.0.0/qrcode.min.js"></script>
+<script>
+new QRCode(document.getElementById('qrcode'), {
+  text: 'https://caomeixiong-d0gl0rp7g53edbe59-1423062612.tcloudbaseapp.com/bearlove/',
+  width: 240,
+  height: 240,
+  colorDark: '#c0527a',
+  colorLight: '#ffffff',
+  correctLevel: QRCode.CorrectLevel.H,
+});
+</script>
+</body>
+</html>
