@@ -376,19 +376,53 @@ function startSparkles() {
   });
 }
 
-// ── 音频 ────────────────────────────────────
-function makeAudio(name) {
-  const a = new Audio('yinxiao/' + name);
-  a.preload = 'auto';
-  return a;
-}
-const audio1 = makeAudio('1.mp3'); // 长按持续音
-const audio2 = makeAudio('2.mp3'); // 爆炸音
-const audio3 = makeAudio('3.mp3'); // 重新登场音
-const audio4 = makeAudio('4.mp3'); // 点击音效
+// ── Web Audio API（零延迟，预解码到内存）────────
+const _files   = ['1.mp3','2.mp3','3.mp3','4.mp3'];
+const _fetches = {};
+_files.forEach(f => {
+  _fetches[f] = fetch('yinxiao/' + encodeURIComponent(f)).then(r => r.arrayBuffer());
+});
 
-function stopAll() {
-  [audio1, audio2, audio3].forEach(a => { a.pause(); a.currentTime = 0; });
+let   _ctx        = null;
+const _bufs       = {};
+let   _loopSrc    = null;
+let   _audioReady = false;
+
+// 立即创建 Context 并开始解码，无需等待用户手势
+// （decodeAudioData 不需要手势，只有 start() 需要 context 处于 running 状态）
+_ctx = new (window.AudioContext || window.webkitAudioContext)();
+Promise.all(_files.map(async f => {
+  _bufs[f] = await _ctx.decodeAudioData(await _fetches[f]);
+})).then(() => { _audioReady = true; });
+
+// 首次交互时 resume（解除浏览器对自动播放的静音限制）
+['touchstart', 'mousedown'].forEach(ev => {
+  document.addEventListener(ev, function h() {
+    if (_ctx.state === 'suspended') _ctx.resume();
+    document.removeEventListener(ev, h);
+  }, { passive: true });
+});
+
+function playOnce(f) {
+  if (!_audioReady || !_bufs[f]) return;
+  const s = _ctx.createBufferSource();
+  s.buffer = _bufs[f];
+  s.connect(_ctx.destination);
+  s.start(0);
+}
+
+function startLoop(f) {
+  stopLoop();
+  if (!_audioReady || !_bufs[f]) return;
+  _loopSrc = _ctx.createBufferSource();
+  _loopSrc.buffer = _bufs[f];
+  _loopSrc.loop = true;
+  _loopSrc.connect(_ctx.destination);
+  _loopSrc.start(0);
+}
+
+function stopLoop() {
+  if (_loopSrc) { try { _loopSrc.stop(0); } catch(e){} _loopSrc = null; }
 }
 
 // ── 粒子 + 涟漪 ─────────────────────────────
@@ -461,9 +495,7 @@ function startHold(cx, cy) {
   spawnRipple(cx, cy);
   spawnParticles(cx, cy);
 
-  // 每次触摸立即播放点击音
-  audio4.currentTime = 0;
-  audio4.play();
+  playOnce('4.mp3');
 
   holdStart = Date.now();
   isHolding = false;
@@ -477,11 +509,7 @@ function startHold(cx, cy) {
       isHolding = true;
       bear.classList.remove('breath', 'bounce');
       bear.style.transformOrigin = 'center center';
-      // 切换到长按音（先停点击音以免重叠）
-      audio4.pause(); audio4.currentTime = 0;
-      audio1.loop = true;
-      audio1.currentTime = 0;
-      audio1.play();
+      startLoop('1.mp3');
     }
 
     if (isHolding) {
@@ -515,8 +543,7 @@ function endHold() {
   if (isExploding) return;
 
   bear.style.filter = '';
-  audio1.pause();
-  audio1.currentTime = 0;
+  stopLoop();
 
   if (wasHolding) {
     // 弹簧回弹
@@ -547,8 +574,8 @@ function triggerExplosion() {
   holdStart   = null;
   isHolding   = false;
   bear.style.filter = '';
-  audio1.pause(); audio1.currentTime = 0;
-  audio2.currentTime = 0; audio2.play();
+  stopLoop();
+  playOnce('2.mp3');
 
   // 屏幕粉色闪光
   const flash = document.createElement('div');
@@ -569,8 +596,7 @@ function triggerExplosion() {
 
     // 从天而降重新出现
     setTimeout(() => {
-      audio2.pause(); audio2.currentTime = 0;
-      audio3.currentTime = 0; audio3.play();
+      playOnce('3.mp3');
       bear.style.opacity = '1';
       bear.classList.add('reappear');
       bear.addEventListener('animationend', function handler() {
